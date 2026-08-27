@@ -24,6 +24,15 @@ import {
     Youtube,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import {
+    domAnimation,
+    LazyMotion,
+    m,
+    useMotionValueEvent,
+    useReducedMotion,
+    useScroll,
+} from 'motion/react';
+import type { HTMLMotionProps } from 'motion/react';
 import { useEffect, useState } from 'react';
 
 import TestimonialsMarquee from '@/components/testimonials-marquee';
@@ -162,6 +171,43 @@ const features: Feature[] = [
 const focusRing =
     'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand-accent focus-visible:ring-offset-3';
 
+type RevealDirection = 'left' | 'right' | 'up' | 'scale';
+
+type RevealMotionProps = Pick<
+    HTMLMotionProps<'section'>,
+    'initial' | 'whileInView' | 'viewport' | 'transition'
+>;
+
+const revealOffsets = {
+    left: { x: -32, y: 0, scale: 1 },
+    right: { x: 32, y: 0, scale: 1 },
+    up: { x: 0, y: 26, scale: 1 },
+    scale: { x: 0, y: 0, scale: 0.985 },
+} as const;
+
+function revealMotion(
+    direction: RevealDirection,
+    shouldReduceMotion: boolean | null,
+    delay = 0,
+): RevealMotionProps {
+    return {
+        initial: shouldReduceMotion
+            ? false
+            : { opacity: 0, ...revealOffsets[direction] },
+        whileInView: shouldReduceMotion
+            ? undefined
+            : { opacity: 1, x: 0, y: 0, scale: 1 },
+        viewport: { once: true, amount: 0.12, margin: '0px 0px -8% 0px' },
+        transition: shouldReduceMotion
+            ? { duration: 0 }
+            : {
+                  duration: 0.62,
+                  delay,
+                  ease: [0.22, 1, 0.36, 1],
+              },
+    };
+}
+
 function useBackgroundVideo(): boolean {
     const [shouldPlay, setShouldPlay] = useState(false);
 
@@ -284,6 +330,17 @@ function BrandMark({ light = false }: { light?: boolean }) {
 export default function Welcome({ stats, notices, nextEvent }: WelcomeProps) {
     const { auth } = usePage().props;
     const shouldPlayVideo = useBackgroundVideo();
+    const shouldReduceMotion = useReducedMotion();
+    const { scrollY } = useScroll();
+    const [hasScrolled, setHasScrolled] = useState(() => scrollY.get() > 20);
+
+    useMotionValueEvent(scrollY, 'change', (latest) => {
+        const isPastHeroTop = latest > 20;
+
+        setHasScrolled((current) =>
+            current === isPastHeroTop ? current : isPastHeroTop,
+        );
+    });
 
     const liveStats = [
         {
@@ -337,257 +394,533 @@ export default function Welcome({ stats, notices, nextEvent }: WelcomeProps) {
                 />
             </Head>
 
-            <div className="min-h-screen overflow-x-hidden bg-brand-background text-brand-text antialiased">
-                <a
-                    href="#main-content"
-                    className={`${focusRing} sr-only z-50 rounded-lg bg-white px-4 py-3 text-sm font-bold text-brand-primary shadow-xl focus:not-sr-only focus:fixed focus:top-4 focus:left-4`}
-                >
-                    Skip to main content
-                </a>
-
-                <header className="sticky top-0 z-40 border-b border-brand-border/70 bg-white/95 backdrop-blur-xl">
-                    <nav
-                        aria-label="Primary navigation"
-                        className="mx-auto flex min-h-18 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
+            <LazyMotion features={domAnimation}>
+                <div className="min-h-screen overflow-x-clip bg-brand-background text-brand-text antialiased">
+                    <a
+                        href="#main-content"
+                        className={`${focusRing} sr-only z-50 rounded-lg bg-white px-4 py-3 text-sm font-bold text-brand-primary shadow-xl focus:not-sr-only focus:fixed focus:top-4 focus:left-4`}
                     >
-                        <Link
-                            href={home()}
-                            aria-label="DMHMA Alumni Association home"
-                            className={`${focusRing} rounded-xl`}
+                        Skip to main content
+                    </a>
+
+                    <header
+                        className={`sticky top-0 z-40 transition-[background-color,border-color,box-shadow,backdrop-filter] duration-300 motion-reduce:transition-none ${hasScrolled ? 'border-b border-brand-border/70 bg-white/92 shadow-[0_8px_30px_rgba(0,24,96,0.10)] backdrop-blur-xl' : 'border-0 bg-transparent shadow-none'}`}
+                    >
+                        <nav
+                            aria-label="Primary navigation"
+                            className="mx-auto flex min-h-18 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
                         >
-                            <BrandMark />
-                        </Link>
-
-                        <div className="hidden items-center gap-7 lg:flex">
-                            {navigation.map((item) => (
-                                <a
-                                    key={item.href}
-                                    href={item.href}
-                                    className={`${focusRing} rounded text-sm font-semibold text-brand-text-muted transition hover:text-brand-primary motion-reduce:transition-none`}
-                                >
-                                    {item.label}
-                                </a>
-                            ))}
-                        </div>
-
-                        <div className="flex items-center gap-2">
                             <Link
-                                href={auth.user ? dashboard() : login()}
-                                className={`${focusRing} hidden min-h-10 items-center rounded-lg px-4 text-sm font-bold text-brand-primary transition hover:bg-brand-surface-soft motion-reduce:transition-none sm:inline-flex`}
+                                href={home()}
+                                aria-label="DMHMA Alumni Association home"
+                                className={`${focusRing} rounded-xl`}
                             >
-                                {auth.user ? 'Dashboard' : 'Log in'}
+                                <BrandMark light={!hasScrolled} />
                             </Link>
-                            {!auth.user && (
-                                <Link
-                                    href={register()}
-                                    className={`${focusRing} inline-flex min-h-10 items-center justify-center rounded-lg bg-brand-primary px-4 text-sm font-bold text-white shadow-sm transition hover:bg-brand-primary-strong motion-reduce:transition-none`}
-                                >
-                                    Join the network
-                                </Link>
-                            )}
-                            <details className="group relative lg:hidden">
-                                <summary
-                                    aria-label="Open navigation menu"
-                                    className={`${focusRing} flex size-10 cursor-pointer list-none items-center justify-center rounded-lg border border-brand-border bg-white text-brand-primary [&::-webkit-details-marker]:hidden`}
-                                >
-                                    <Menu
-                                        className="size-5"
-                                        aria-hidden="true"
-                                    />
-                                </summary>
-                                <div className="absolute top-13 right-0 w-56 rounded-xl border border-brand-border bg-white p-2 shadow-2xl">
-                                    {navigation.map((item) => (
-                                        <a
-                                            key={item.href}
-                                            href={item.href}
-                                            className={`${focusRing} block rounded-lg px-4 py-3 text-sm font-semibold text-brand-text-muted hover:bg-brand-surface-soft hover:text-brand-primary`}
-                                        >
-                                            {item.label}
-                                        </a>
-                                    ))}
-                                    <Link
-                                        href={auth.user ? dashboard() : login()}
-                                        className={`${focusRing} mt-1 block rounded-lg px-4 py-3 text-sm font-semibold text-brand-primary hover:bg-brand-surface-soft sm:hidden`}
+
+                            <div className="hidden items-center gap-7 lg:flex">
+                                {navigation.map((item) => (
+                                    <a
+                                        key={item.href}
+                                        href={item.href}
+                                        className={`${focusRing} rounded text-sm font-semibold transition motion-reduce:transition-none ${hasScrolled ? 'text-brand-text-muted hover:text-brand-primary' : 'text-white/82 hover:text-white'}`}
                                     >
-                                        {auth.user
-                                            ? 'Open dashboard'
-                                            : 'Log in'}
+                                        {item.label}
+                                    </a>
+                                ))}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Link
+                                    href={auth.user ? dashboard() : login()}
+                                    className={`${focusRing} hidden min-h-10 items-center rounded-lg px-4 text-sm font-bold transition motion-reduce:transition-none sm:inline-flex ${hasScrolled ? 'text-brand-primary hover:bg-brand-surface-soft' : 'text-white hover:bg-white/12'}`}
+                                >
+                                    {auth.user ? 'Dashboard' : 'Log in'}
+                                </Link>
+                                {!auth.user && (
+                                    <Link
+                                        href={register()}
+                                        className={`${focusRing} inline-flex min-h-10 items-center justify-center rounded-lg px-4 text-sm font-bold shadow-sm transition motion-reduce:transition-none ${hasScrolled ? 'bg-brand-primary text-white hover:bg-brand-primary-strong' : 'bg-white text-brand-primary hover:bg-brand-secondary'}`}
+                                    >
+                                        Join the network
                                     </Link>
-                                </div>
-                            </details>
-                        </div>
-                    </nav>
-                </header>
-
-                <main id="main-content">
-                    <section className="relative isolate min-h-[calc(100svh-4.5rem)] overflow-hidden bg-brand-primary-strong text-white">
-                        <div className="absolute inset-0 -z-30 bg-[radial-gradient(circle_at_80%_20%,rgba(0,120,240,0.55),transparent_38%),linear-gradient(135deg,#00113f,#003090_55%,#001860)]" />
-                        {shouldPlayVideo && (
-                            <video
-                                autoPlay
-                                muted
-                                loop
-                                playsInline
-                                preload="metadata"
-                                aria-hidden="true"
-                                className="absolute inset-0 -z-20 size-full object-cover"
-                            >
-                                <source
-                                    src="/storage/home/hero-bg%20(1).mp4"
-                                    type="video/mp4"
-                                />
-                            </video>
-                        )}
-                        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(0,13,47,0.95)_0%,rgba(0,24,96,0.80)_48%,rgba(0,24,96,0.38)_100%)]" />
-                        <div className="absolute inset-0 -z-10 bg-[linear-gradient(0deg,rgba(0,13,47,0.86)_0%,transparent_48%)]" />
-
-                        <div className="mx-auto flex min-h-[calc(100svh-4.5rem)] max-w-7xl flex-col justify-between px-4 py-14 sm:px-6 sm:py-18 lg:px-8 lg:py-22">
-                            <div className="grid items-center gap-10 sm:gap-12 lg:grid-cols-[minmax(0,1.08fr)_minmax(20rem,0.72fr)] lg:gap-10 xl:gap-16">
-                                <div className="max-w-4xl min-w-0">
-                                    <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold tracking-[0.16em] text-brand-secondary uppercase backdrop-blur-md">
-                                        <Sparkles
-                                            className="size-4"
+                                )}
+                                <details className="group relative lg:hidden">
+                                    <summary
+                                        aria-label="Open navigation menu"
+                                        className={`${focusRing} flex size-10 cursor-pointer list-none items-center justify-center rounded-lg border [&::-webkit-details-marker]:hidden ${hasScrolled ? 'border-brand-border bg-white text-brand-primary' : 'border-white/25 bg-white/10 text-white backdrop-blur-md'}`}
+                                    >
+                                        <Menu
+                                            className="size-5"
                                             aria-hidden="true"
                                         />
-                                        One community. Every generation.
-                                    </p>
-                                    <h1 className="mt-7 max-w-4xl text-4xl leading-[1.04] font-bold tracking-[-0.035em] text-balance sm:text-6xl lg:text-6xl xl:text-7xl">
-                                        The digital home of the DMHMA alumni
-                                        community.
-                                    </h1>
-                                    <p className="mt-6 max-w-2xl text-lg leading-8 text-white/78 sm:text-xl">
-                                        The DMHMA Alumni Association Management
-                                        System brings verified profiles,
-                                        official updates, events, and community
-                                        opportunities together in one trusted
-                                        place.
-                                    </p>
-                                    <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+                                    </summary>
+                                    <div className="absolute top-13 right-0 w-56 rounded-xl border border-brand-border bg-white p-2 shadow-2xl">
+                                        {navigation.map((item) => (
+                                            <a
+                                                key={item.href}
+                                                href={item.href}
+                                                className={`${focusRing} block rounded-lg px-4 py-3 text-sm font-semibold text-brand-text-muted hover:bg-brand-surface-soft hover:text-brand-primary`}
+                                            >
+                                                {item.label}
+                                            </a>
+                                        ))}
                                         <Link
                                             href={
                                                 auth.user
                                                     ? dashboard()
-                                                    : register()
+                                                    : login()
                                             }
-                                            className={`${focusRing} group inline-flex min-h-13 items-center justify-center gap-2 rounded-lg bg-white px-6 text-sm font-extrabold text-brand-primary shadow-xl transition hover:bg-brand-secondary motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none`}
+                                            className={`${focusRing} mt-1 block rounded-lg px-4 py-3 text-sm font-semibold text-brand-primary hover:bg-brand-surface-soft sm:hidden`}
                                         >
                                             {auth.user
-                                                ? 'Go to your dashboard'
-                                                : 'Create your alumni profile'}
+                                                ? 'Open dashboard'
+                                                : 'Log in'}
+                                        </Link>
+                                    </div>
+                                </details>
+                            </div>
+                        </nav>
+                    </header>
+
+                    <main id="main-content" className="-mt-18">
+                        <m.section
+                            {...revealMotion('left', shouldReduceMotion)}
+                            className="relative isolate min-h-screen overflow-hidden bg-brand-primary-strong text-white"
+                        >
+                            <div className="absolute inset-0 -z-30 bg-[radial-gradient(circle_at_80%_20%,rgba(0,120,240,0.55),transparent_38%),linear-gradient(135deg,#00113f,#003090_55%,#001860)]" />
+                            {shouldPlayVideo && (
+                                <video
+                                    autoPlay
+                                    muted
+                                    loop
+                                    playsInline
+                                    preload="metadata"
+                                    aria-hidden="true"
+                                    className="absolute inset-0 -z-20 size-full object-cover"
+                                >
+                                    <source
+                                        src="/storage/home/hero-bg%20(1).mp4"
+                                        type="video/mp4"
+                                    />
+                                </video>
+                            )}
+                            <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(0,13,47,0.95)_0%,rgba(0,24,96,0.80)_48%,rgba(0,24,96,0.38)_100%)]" />
+                            <div className="absolute inset-0 -z-10 bg-[linear-gradient(0deg,rgba(0,13,47,0.86)_0%,transparent_48%)]" />
+
+                            <div className="mx-auto flex min-h-screen max-w-7xl flex-col justify-between px-4 pt-32 pb-14 sm:px-6 sm:pt-36 sm:pb-18 lg:px-8 lg:pt-40 lg:pb-22">
+                                <div className="grid items-center gap-10 sm:gap-12 lg:grid-cols-[minmax(0,1.08fr)_minmax(20rem,0.72fr)] lg:gap-10 xl:gap-16">
+                                    <div className="max-w-4xl min-w-0">
+                                        <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold tracking-[0.16em] text-brand-secondary uppercase backdrop-blur-md">
+                                            <Sparkles
+                                                className="size-4"
+                                                aria-hidden="true"
+                                            />
+                                            One community. Every generation.
+                                        </p>
+                                        <h1 className="mt-7 max-w-4xl text-4xl leading-[1.04] font-bold tracking-[-0.035em] text-balance sm:text-6xl lg:text-6xl xl:text-7xl">
+                                            The digital home of the DMHMA alumni
+                                            community.
+                                        </h1>
+                                        <p className="mt-6 max-w-2xl text-lg leading-8 text-white/78 sm:text-xl">
+                                            The DMHMA Alumni Association
+                                            Management System brings verified
+                                            profiles, official updates, events,
+                                            and community opportunities together
+                                            in one trusted place.
+                                        </p>
+                                        <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+                                            <Link
+                                                href={
+                                                    auth.user
+                                                        ? dashboard()
+                                                        : register()
+                                                }
+                                                className={`${focusRing} group inline-flex min-h-13 items-center justify-center gap-2 rounded-lg bg-white px-6 text-sm font-extrabold text-brand-primary shadow-xl transition hover:bg-brand-secondary motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none`}
+                                            >
+                                                {auth.user
+                                                    ? 'Go to your dashboard'
+                                                    : 'Create your alumni profile'}
+                                                <ArrowRight
+                                                    className="size-4 transition motion-safe:group-hover:translate-x-1 motion-reduce:transition-none"
+                                                    aria-hidden="true"
+                                                />
+                                            </Link>
+                                            <a
+                                                href="#platform"
+                                                className={`${focusRing} inline-flex min-h-13 items-center justify-center gap-2 rounded-lg border border-white/30 bg-white/8 px-6 text-sm font-bold text-white backdrop-blur-md transition hover:bg-white/15 motion-reduce:transition-none`}
+                                            >
+                                                Explore the platform
+                                                <ChevronRight
+                                                    className="size-4"
+                                                    aria-hidden="true"
+                                                />
+                                            </a>
+                                        </div>
+                                    </div>
+
+                                    <figure className="group relative mx-auto w-full max-w-lg min-w-0 motion-safe:animate-in motion-safe:duration-700 motion-safe:fade-in motion-safe:slide-in-from-right-6 sm:max-w-xl lg:mx-0 lg:max-w-md lg:justify-self-end xl:max-w-lg">
+                                        <div
+                                            className="absolute inset-0 translate-x-3 translate-y-3 rounded-[2rem] border border-white/18 bg-white/6 backdrop-blur-sm"
+                                            aria-hidden="true"
+                                        />
+                                        <div className="relative aspect-[5612/4000] overflow-hidden rounded-[2rem] border border-white/25 bg-brand-primary-strong shadow-[0_28px_70px_rgba(0,8,38,0.4)]">
+                                            <img
+                                                src="/storage/hero%20image.jpg"
+                                                alt="Campus building surrounded by landscaped grounds"
+                                                width="5612"
+                                                height="4000"
+                                                loading="eager"
+                                                fetchPriority="high"
+                                                decoding="async"
+                                                className="size-full object-cover object-center transition duration-700 ease-out motion-safe:group-hover:scale-[1.035] motion-reduce:transition-none"
+                                            />
+                                            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(0deg,rgba(0,13,47,0.82)_0%,transparent_48%)]" />
+                                            <figcaption className="absolute right-4 bottom-4 left-4 flex items-center gap-3 rounded-2xl border border-white/18 bg-brand-primary-strong/82 p-3 text-white shadow-lg backdrop-blur-md sm:right-5 sm:bottom-5 sm:left-5 sm:p-3.5">
+                                                <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1.5">
+                                                    <img
+                                                        src="/images/dmhma-alumni-logo.png"
+                                                        alt=""
+                                                        width="44"
+                                                        height="44"
+                                                        decoding="async"
+                                                        className="size-full object-contain"
+                                                    />
+                                                </span>
+                                                <span>
+                                                    <span className="block text-sm font-extrabold">
+                                                        DMHMA Alumni Association
+                                                    </span>
+                                                    <span className="mt-0.5 block text-xs text-white/68">
+                                                        Connected for life
+                                                    </span>
+                                                </span>
+                                            </figcaption>
+                                        </div>
+                                    </figure>
+                                </div>
+
+                                <dl className="mt-16 grid max-w-3xl grid-cols-1 overflow-hidden rounded-2xl border border-white/16 bg-white/10 backdrop-blur-xl sm:grid-cols-3">
+                                    {liveStats.map((stat) => (
+                                        <div
+                                            key={stat.label}
+                                            className="border-white/14 px-6 py-5 not-last:border-b sm:not-last:border-r sm:not-last:border-b-0"
+                                        >
+                                            <dt className="text-xs font-semibold tracking-wide text-white/65">
+                                                {stat.label}
+                                            </dt>
+                                            <dd className="mt-1 text-3xl font-bold text-white">
+                                                {stat.value}
+                                            </dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </div>
+                        </m.section>
+
+                        <m.section
+                            {...revealMotion('right', shouldReduceMotion, 0.04)}
+                            id="about"
+                            aria-labelledby="about-heading"
+                            className="relative scroll-mt-24 overflow-hidden bg-white px-4 py-20 sm:px-6 sm:py-24 lg:px-8"
+                        >
+                            <div
+                                className="pointer-events-none absolute top-0 right-0 -z-0 h-36 w-1/3 rounded-bl-[5rem] bg-brand-surface-soft/70"
+                                aria-hidden="true"
+                            />
+                            <div className="relative mx-auto max-w-7xl">
+                                <div className="grid gap-14 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:gap-16">
+                                    <div className="motion-safe:animate-in motion-safe:duration-700 motion-safe:fade-in motion-safe:slide-in-from-bottom-4">
+                                        <p className="inline-flex rounded-full bg-brand-accent/10 px-3 py-1.5 text-xs font-bold tracking-[0.12em] text-brand-accent uppercase">
+                                            About DMHMA Alumni Association
+                                        </p>
+                                        <h2
+                                            id="about-heading"
+                                            className="mt-5 max-w-xl font-serif text-4xl leading-[1.08] font-bold tracking-tight text-brand-primary-strong sm:text-5xl"
+                                        >
+                                            A legacy of excellence. A future of{' '}
+                                            <span className="text-brand-accent">
+                                                impact.
+                                            </span>
+                                        </h2>
+                                        <p className="mt-6 max-w-xl text-base leading-7 text-brand-text-muted sm:text-lg sm:leading-8">
+                                            The DMHMA Alumni Association brings
+                                            graduates together in a trusted
+                                            network where every batch can
+                                            reconnect, share opportunities,
+                                            support one another, and contribute
+                                            to the community that shaped them.
+                                        </p>
+                                        <a
+                                            href="#community"
+                                            className={`${focusRing} group mt-8 inline-flex min-h-12 items-center justify-center gap-3 rounded-full border border-brand-primary/35 bg-white px-6 text-sm font-extrabold text-brand-primary shadow-sm transition hover:border-brand-primary hover:bg-brand-surface-soft motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none`}
+                                        >
+                                            Learn more about us
                                             <ArrowRight
                                                 className="size-4 transition motion-safe:group-hover:translate-x-1 motion-reduce:transition-none"
                                                 aria-hidden="true"
                                             />
-                                        </Link>
-                                        <a
-                                            href="#platform"
-                                            className={`${focusRing} inline-flex min-h-13 items-center justify-center gap-2 rounded-lg border border-white/30 bg-white/8 px-6 text-sm font-bold text-white backdrop-blur-md transition hover:bg-white/15 motion-reduce:transition-none`}
-                                        >
-                                            Explore the platform
-                                            <ChevronRight
-                                                className="size-4"
+                                        </a>
+                                    </div>
+
+                                    <div className="relative min-h-[31rem] motion-safe:animate-in motion-safe:delay-150 motion-safe:duration-700 motion-safe:fade-in motion-safe:slide-in-from-bottom-6 sm:min-h-[35rem]">
+                                        <figure className="absolute top-0 left-0 h-56 w-[82%] overflow-hidden rounded-3xl border-4 border-white bg-brand-surface-soft shadow-[0_22px_55px_rgba(0,24,96,0.18)] sm:h-[58%] sm:w-[72%]">
+                                            <img
+                                                src="/storage/hero%20image.jpg"
+                                                alt="Campus building surrounded by landscaped grounds"
+                                                width="5612"
+                                                height="4000"
+                                                loading="lazy"
+                                                decoding="async"
+                                                className="size-full object-cover transition duration-500 motion-safe:hover:scale-[1.025] motion-reduce:transition-none"
+                                            />
+                                        </figure>
+
+                                        <blockquote className="absolute top-40 right-0 z-10 flex h-56 w-[58%] flex-col justify-between overflow-hidden rounded-3xl bg-brand-primary-strong p-5 text-white shadow-[0_24px_60px_rgba(0,24,96,0.25)] sm:top-[14%] sm:h-[56%] sm:w-[42%] sm:p-7">
+                                            <Quote
+                                                className="size-9 fill-brand-accent/30 text-brand-accent"
                                                 aria-hidden="true"
                                             />
-                                        </a>
+                                            <p className="relative z-10 font-serif text-lg leading-snug font-bold sm:text-2xl">
+                                                “Once a DMHMAN, always a
+                                                DMHMAN.”
+                                            </p>
+                                            <img
+                                                src="/images/dmhma-alumni-logo.png"
+                                                alt=""
+                                                width="112"
+                                                height="112"
+                                                loading="lazy"
+                                                decoding="async"
+                                                className="pointer-events-none absolute right-3 bottom-1 size-24 object-contain opacity-10 sm:size-28"
+                                            />
+                                        </blockquote>
+
+                                        <figure className="absolute bottom-0 left-0 z-20 h-44 w-[54%] rotate-[-2deg] overflow-hidden rounded-2xl border-4 border-white bg-brand-surface-soft shadow-[0_18px_45px_rgba(0,24,96,0.18)] transition duration-300 motion-safe:hover:-translate-y-1 motion-safe:hover:rotate-0 motion-reduce:transition-none sm:left-[7%] sm:h-[38%] sm:w-[48%]">
+                                            <img
+                                                src="/storage/events/events%20(1).jpg"
+                                                alt="Graduates sharing a celebratory moment"
+                                                width="900"
+                                                height="600"
+                                                loading="lazy"
+                                                decoding="async"
+                                                className="size-full object-cover"
+                                            />
+                                        </figure>
                                     </div>
                                 </div>
 
-                                <figure className="group relative mx-auto w-full max-w-lg min-w-0 motion-safe:animate-in motion-safe:duration-700 motion-safe:fade-in motion-safe:slide-in-from-right-6 sm:max-w-xl lg:mx-0 lg:max-w-md lg:justify-self-end xl:max-w-lg">
+                                <dl className="mt-14 grid overflow-hidden rounded-2xl border border-brand-border bg-white shadow-[0_14px_40px_rgba(0,48,144,0.08)] sm:grid-cols-3 lg:mt-16">
+                                    {[
+                                        {
+                                            value: formatNumber(
+                                                stats.totalMembers,
+                                            ),
+                                            label: 'Verified alumni members',
+                                            icon: UsersRound,
+                                        },
+                                        {
+                                            value: formatNumber(
+                                                stats.activeBatches,
+                                            ),
+                                            label: 'Batches represented',
+                                            icon: GraduationCap,
+                                        },
+                                        {
+                                            value: formatNumber(
+                                                stats.eventsOrganized,
+                                            ),
+                                            label: 'Events completed',
+                                            icon: CalendarDays,
+                                        },
+                                    ].map((statistic) => {
+                                        const Icon = statistic.icon;
+
+                                        return (
+                                            <div
+                                                key={statistic.label}
+                                                className="group flex items-center gap-4 border-brand-border px-6 py-6 not-last:border-b sm:not-last:border-r sm:not-last:border-b-0 lg:px-8"
+                                            >
+                                                <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-brand-surface-soft text-brand-primary transition group-hover:bg-brand-primary group-hover:text-white motion-reduce:transition-none">
+                                                    <Icon
+                                                        className="size-6"
+                                                        aria-hidden="true"
+                                                    />
+                                                </span>
+                                                <div className="flex flex-col">
+                                                    <dt className="order-2 mt-1 text-xs font-semibold text-brand-text-muted sm:text-sm">
+                                                        {statistic.label}
+                                                    </dt>
+                                                    <dd className="order-1 text-2xl font-extrabold text-brand-text sm:text-3xl">
+                                                        {statistic.value}
+                                                    </dd>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </dl>
+                            </div>
+                        </m.section>
+
+                        <m.section
+                            {...revealMotion('left', shouldReduceMotion, 0.05)}
+                            id="platform"
+                            className="scroll-mt-24 px-4 py-20 sm:px-6 sm:py-24 lg:px-8"
+                        >
+                            <div className="mx-auto max-w-7xl">
+                                <SectionHeading
+                                    eyebrow="Built for belonging"
+                                    title="Everything the association needs to stay connected."
+                                    description="A clear, dependable platform for managing alumni relationships and keeping every generation informed and involved."
+                                />
+                                <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+                                    {features.map((feature, index) => {
+                                        const Icon = feature.icon;
+
+                                        return (
+                                            <article
+                                                key={feature.title}
+                                                className="group rounded-2xl border border-brand-border bg-white p-6 shadow-[0_12px_35px_rgba(0,48,144,0.06)] transition hover:border-brand-accent/50 hover:shadow-[0_18px_45px_rgba(0,48,144,0.12)] motion-safe:hover:-translate-y-1 motion-reduce:transition-none"
+                                            >
+                                                <div className="flex items-start justify-between gap-4">
+                                                    <span className="flex size-12 items-center justify-center rounded-xl bg-brand-surface-soft text-brand-primary transition group-hover:bg-brand-primary group-hover:text-white motion-reduce:transition-none">
+                                                        <Icon
+                                                            className="size-6"
+                                                            aria-hidden="true"
+                                                        />
+                                                    </span>
+                                                    <span className="text-xs font-bold text-brand-border">
+                                                        0{index + 1}
+                                                    </span>
+                                                </div>
+                                                <h3 className="mt-6 text-xl font-bold text-brand-text">
+                                                    {feature.title}
+                                                </h3>
+                                                <p className="mt-3 text-sm leading-6 text-brand-text-muted">
+                                                    {feature.description}
+                                                </p>
+                                            </article>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </m.section>
+
+                        <section
+                            id="community"
+                            className="scroll-mt-24 bg-white px-4 py-20 sm:px-6 sm:py-24 lg:px-8"
+                        >
+                            <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
+                                <m.div
+                                    {...revealMotion(
+                                        'up',
+                                        shouldReduceMotion,
+                                        0.04,
+                                    )}
+                                    className="relative isolate overflow-hidden rounded-3xl p-8 text-white shadow-2xl sm:p-10"
+                                >
+                                    <img
+                                        src="/storage/alumni%20(5).jpg"
+                                        alt=""
+                                        width="3800"
+                                        height="2138"
+                                        loading="lazy"
+                                        decoding="async"
+                                        aria-hidden="true"
+                                        className="absolute inset-0 -z-20 size-full object-cover object-center"
+                                    />
                                     <div
-                                        className="absolute inset-0 translate-x-3 translate-y-3 rounded-[2rem] border border-white/18 bg-white/6 backdrop-blur-sm"
+                                        className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(0,22,70,0.46)_0%,rgba(0,18,61,0.84)_100%)]"
                                         aria-hidden="true"
                                     />
-                                    <div className="relative aspect-[5612/4000] overflow-hidden rounded-[2rem] border border-white/25 bg-brand-primary-strong shadow-[0_28px_70px_rgba(0,8,38,0.4)]">
-                                        <img
-                                            src="/storage/hero%20image.jpg"
-                                            alt="Campus building surrounded by landscaped grounds"
-                                            width="5612"
-                                            height="4000"
-                                            loading="eager"
-                                            fetchPriority="high"
-                                            decoding="async"
-                                            className="size-full object-cover object-center transition duration-700 ease-out motion-safe:group-hover:scale-[1.035] motion-reduce:transition-none"
-                                        />
-                                        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(0deg,rgba(0,13,47,0.82)_0%,transparent_48%)]" />
-                                        <figcaption className="absolute right-4 bottom-4 left-4 flex items-center gap-3 rounded-2xl border border-white/18 bg-brand-primary-strong/82 p-3 text-white shadow-lg backdrop-blur-md sm:right-5 sm:bottom-5 sm:left-5 sm:p-3.5">
-                                            <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1.5">
-                                                <img
-                                                    src="/images/dmhma-alumni-logo.png"
-                                                    alt=""
-                                                    width="44"
-                                                    height="44"
-                                                    decoding="async"
-                                                    className="size-full object-contain"
-                                                />
-                                            </span>
-                                            <span>
-                                                <span className="block text-sm font-extrabold">
-                                                    DMHMA Alumni Association
+                                    <div className="absolute top-0 right-0 size-64 translate-x-1/3 -translate-y-1/3 rounded-full bg-brand-accent/35 blur-3xl" />
+                                    <img
+                                        src="/images/dmhma-alumni-logo.png"
+                                        alt="DMHMA Alumni Association emblem"
+                                        width="176"
+                                        height="176"
+                                        loading="lazy"
+                                        decoding="async"
+                                        className="relative z-10 size-32 rounded-2xl bg-white object-contain p-3 shadow-xl sm:size-40"
+                                    />
+                                    <p className="relative z-10 mt-8 text-xs font-bold tracking-[0.2em] text-brand-secondary uppercase">
+                                        Rooted in DMHMA
+                                    </p>
+                                    <p className="relative z-10 mt-3 max-w-md text-2xl leading-snug font-bold sm:text-3xl">
+                                        A lifelong network built on shared
+                                        memories, mutual respect, and service.
+                                    </p>
+                                </m.div>
+
+                                <m.div
+                                    {...revealMotion(
+                                        'right',
+                                        shouldReduceMotion,
+                                        0.1,
+                                    )}
+                                >
+                                    <SectionHeading
+                                        eyebrow="More than a directory"
+                                        title="Turn school connections into lifelong community."
+                                        description="DMHMA shaped friendships and values that extend far beyond the classroom. The association gives those connections a trusted place to continue."
+                                        align="left"
+                                    />
+                                    <ul className="mt-8 grid gap-4 sm:grid-cols-2">
+                                        {[
+                                            'Reconnect across batches and locations',
+                                            'Keep member information organized and current',
+                                            'Discover official events and announcements',
+                                            'Create pathways for mentorship and support',
+                                        ].map((item) => (
+                                            <li
+                                                key={item}
+                                                className="flex items-start gap-3 text-sm font-semibold text-brand-text"
+                                            >
+                                                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-secondary text-brand-primary">
+                                                    <Check
+                                                        className="size-4"
+                                                        aria-hidden="true"
+                                                    />
                                                 </span>
-                                                <span className="mt-0.5 block text-xs text-white/68">
-                                                    Connected for life
+                                                <span className="leading-6">
+                                                    {item}
                                                 </span>
-                                            </span>
-                                        </figcaption>
-                                    </div>
-                                </figure>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </m.div>
                             </div>
+                        </section>
 
-                            <dl className="mt-16 grid max-w-3xl grid-cols-1 overflow-hidden rounded-2xl border border-white/16 bg-white/10 backdrop-blur-xl sm:grid-cols-3">
-                                {liveStats.map((stat) => (
-                                    <div
-                                        key={stat.label}
-                                        className="border-white/14 px-6 py-5 not-last:border-b sm:not-last:border-r sm:not-last:border-b-0"
-                                    >
-                                        <dt className="text-xs font-semibold tracking-wide text-white/65">
-                                            {stat.label}
-                                        </dt>
-                                        <dd className="mt-1 text-3xl font-bold text-white">
-                                            {stat.value}
-                                        </dd>
+                        <m.section
+                            {...revealMotion('up', shouldReduceMotion, 0.04)}
+                            id="events"
+                            aria-labelledby="events-heading"
+                            className="scroll-mt-24 px-4 py-20 sm:px-6 sm:py-24 lg:px-8"
+                        >
+                            <div className="mx-auto max-w-7xl">
+                                <div className="flex flex-col gap-7 sm:flex-row sm:items-end sm:justify-between">
+                                    <div>
+                                        <p className="inline-flex rounded-full bg-brand-accent/10 px-3 py-1.5 text-xs font-bold tracking-[0.14em] text-brand-accent uppercase">
+                                            Upcoming events
+                                        </p>
+                                        <h2
+                                            id="events-heading"
+                                            className="mt-4 font-serif text-3xl leading-tight font-bold tracking-tight text-brand-primary-strong sm:text-4xl lg:text-5xl"
+                                        >
+                                            Stay{' '}
+                                            <span className="text-brand-accent">
+                                                connected,
+                                            </span>{' '}
+                                            stay involved.
+                                        </h2>
                                     </div>
-                                ))}
-                            </dl>
-                        </div>
-                    </section>
 
-                    <section
-                        id="about"
-                        aria-labelledby="about-heading"
-                        className="relative scroll-mt-24 overflow-hidden bg-white px-4 py-20 sm:px-6 sm:py-24 lg:px-8"
-                    >
-                        <div
-                            className="pointer-events-none absolute top-0 right-0 -z-0 h-36 w-1/3 rounded-bl-[5rem] bg-brand-surface-soft/70"
-                            aria-hidden="true"
-                        />
-                        <div className="relative mx-auto max-w-7xl">
-                            <div className="grid gap-14 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:gap-16">
-                                <div className="motion-safe:animate-in motion-safe:duration-700 motion-safe:fade-in motion-safe:slide-in-from-bottom-4">
-                                    <p className="inline-flex rounded-full bg-brand-accent/10 px-3 py-1.5 text-xs font-bold tracking-[0.12em] text-brand-accent uppercase">
-                                        About DMHMA Alumni Association
-                                    </p>
-                                    <h2
-                                        id="about-heading"
-                                        className="mt-5 max-w-xl font-serif text-4xl leading-[1.08] font-bold tracking-tight text-brand-primary-strong sm:text-5xl"
-                                    >
-                                        A legacy of excellence. A future of{' '}
-                                        <span className="text-brand-accent">
-                                            impact.
-                                        </span>
-                                    </h2>
-                                    <p className="mt-6 max-w-xl text-base leading-7 text-brand-text-muted sm:text-lg sm:leading-8">
-                                        The DMHMA Alumni Association brings
-                                        graduates together in a trusted network
-                                        where every batch can reconnect, share
-                                        opportunities, support one another, and
-                                        contribute to the community that shaped
-                                        them.
-                                    </p>
                                     <a
-                                        href="#community"
-                                        className={`${focusRing} group mt-8 inline-flex min-h-12 items-center justify-center gap-3 rounded-full border border-brand-primary/35 bg-white px-6 text-sm font-extrabold text-brand-primary shadow-sm transition hover:border-brand-primary hover:bg-brand-surface-soft motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none`}
+                                        href="#updates"
+                                        className={`${focusRing} group inline-flex min-h-12 w-fit items-center justify-center gap-3 rounded-full border border-brand-primary/35 bg-white px-6 text-sm font-extrabold text-brand-primary shadow-sm transition hover:border-brand-primary hover:bg-brand-surface-soft motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none`}
                                     >
-                                        Learn more about us
+                                        View all events
                                         <ArrowRight
                                             className="size-4 transition motion-safe:group-hover:translate-x-1 motion-reduce:transition-none"
                                             aria-hidden="true"
@@ -595,845 +928,619 @@ export default function Welcome({ stats, notices, nextEvent }: WelcomeProps) {
                                     </a>
                                 </div>
 
-                                <div className="relative min-h-[31rem] motion-safe:animate-in motion-safe:delay-150 motion-safe:duration-700 motion-safe:fade-in motion-safe:slide-in-from-bottom-6 sm:min-h-[35rem]">
-                                    <figure className="absolute top-0 left-0 h-56 w-[82%] overflow-hidden rounded-3xl border-4 border-white bg-brand-surface-soft shadow-[0_22px_55px_rgba(0,24,96,0.18)] sm:h-[58%] sm:w-[72%]">
-                                        <img
-                                            src="/storage/hero%20image.jpg"
-                                            alt="Campus building surrounded by landscaped grounds"
-                                            width="5612"
-                                            height="4000"
-                                            loading="lazy"
-                                            decoding="async"
-                                            className="size-full object-cover transition duration-500 motion-safe:hover:scale-[1.025] motion-reduce:transition-none"
-                                        />
-                                    </figure>
-
-                                    <blockquote className="absolute top-40 right-0 z-10 flex h-56 w-[58%] flex-col justify-between overflow-hidden rounded-3xl bg-brand-primary-strong p-5 text-white shadow-[0_24px_60px_rgba(0,24,96,0.25)] sm:top-[14%] sm:h-[56%] sm:w-[42%] sm:p-7">
-                                        <Quote
-                                            className="size-9 fill-brand-accent/30 text-brand-accent"
-                                            aria-hidden="true"
-                                        />
-                                        <p className="relative z-10 font-serif text-lg leading-snug font-bold sm:text-2xl">
-                                            “Once a DMHMAN, always a DMHMAN.”
-                                        </p>
-                                        <img
-                                            src="/images/dmhma-alumni-logo.png"
-                                            alt=""
-                                            width="112"
-                                            height="112"
-                                            loading="lazy"
-                                            decoding="async"
-                                            className="pointer-events-none absolute right-3 bottom-1 size-24 object-contain opacity-10 sm:size-28"
-                                        />
-                                    </blockquote>
-
-                                    <figure className="absolute bottom-0 left-0 z-20 h-44 w-[54%] rotate-[-2deg] overflow-hidden rounded-2xl border-4 border-white bg-brand-surface-soft shadow-[0_18px_45px_rgba(0,24,96,0.18)] transition duration-300 motion-safe:hover:-translate-y-1 motion-safe:hover:rotate-0 motion-reduce:transition-none sm:left-[7%] sm:h-[38%] sm:w-[48%]">
-                                        <img
-                                            src="/storage/events/events%20(1).jpg"
-                                            alt="Graduates sharing a celebratory moment"
-                                            width="900"
-                                            height="600"
-                                            loading="lazy"
-                                            decoding="async"
-                                            className="size-full object-cover"
-                                        />
-                                    </figure>
-                                </div>
-                            </div>
-
-                            <dl className="mt-14 grid overflow-hidden rounded-2xl border border-brand-border bg-white shadow-[0_14px_40px_rgba(0,48,144,0.08)] sm:grid-cols-3 lg:mt-16">
-                                {[
-                                    {
-                                        value: formatNumber(stats.totalMembers),
-                                        label: 'Verified alumni members',
-                                        icon: UsersRound,
-                                    },
-                                    {
-                                        value: formatNumber(
-                                            stats.activeBatches,
-                                        ),
-                                        label: 'Batches represented',
-                                        icon: GraduationCap,
-                                    },
-                                    {
-                                        value: formatNumber(
-                                            stats.eventsOrganized,
-                                        ),
-                                        label: 'Events completed',
-                                        icon: CalendarDays,
-                                    },
-                                ].map((statistic) => {
-                                    const Icon = statistic.icon;
-
-                                    return (
-                                        <div
-                                            key={statistic.label}
-                                            className="group flex items-center gap-4 border-brand-border px-6 py-6 not-last:border-b sm:not-last:border-r sm:not-last:border-b-0 lg:px-8"
-                                        >
-                                            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-brand-surface-soft text-brand-primary transition group-hover:bg-brand-primary group-hover:text-white motion-reduce:transition-none">
-                                                <Icon
-                                                    className="size-6"
-                                                    aria-hidden="true"
-                                                />
-                                            </span>
-                                            <div className="flex flex-col">
-                                                <dt className="order-2 mt-1 text-xs font-semibold text-brand-text-muted sm:text-sm">
-                                                    {statistic.label}
-                                                </dt>
-                                                <dd className="order-1 text-2xl font-extrabold text-brand-text sm:text-3xl">
-                                                    {statistic.value}
-                                                </dd>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </dl>
-                        </div>
-                    </section>
-
-                    <section
-                        id="platform"
-                        className="scroll-mt-24 px-4 py-20 sm:px-6 sm:py-24 lg:px-8"
-                    >
-                        <div className="mx-auto max-w-7xl">
-                            <SectionHeading
-                                eyebrow="Built for belonging"
-                                title="Everything the association needs to stay connected."
-                                description="A clear, dependable platform for managing alumni relationships and keeping every generation informed and involved."
-                            />
-                            <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-                                {features.map((feature, index) => {
-                                    const Icon = feature.icon;
-
-                                    return (
+                                <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                                    {upcomingEvents.map((event) => (
                                         <article
-                                            key={feature.title}
-                                            className="group rounded-2xl border border-brand-border bg-white p-6 shadow-[0_12px_35px_rgba(0,48,144,0.06)] transition hover:border-brand-accent/50 hover:shadow-[0_18px_45px_rgba(0,48,144,0.12)] motion-safe:hover:-translate-y-1 motion-reduce:transition-none"
+                                            key={event.id}
+                                            aria-labelledby={`event-${event.id}`}
+                                            className="group flex overflow-hidden rounded-2xl border border-brand-border bg-white shadow-[0_12px_35px_rgba(0,48,144,0.06)] transition duration-300 hover:border-brand-primary/30 hover:shadow-[0_20px_50px_rgba(0,48,144,0.13)] motion-safe:hover:-translate-y-1 motion-reduce:transition-none md:flex-col"
                                         >
-                                            <div className="flex items-start justify-between gap-4">
-                                                <span className="flex size-12 items-center justify-center rounded-xl bg-brand-surface-soft text-brand-primary transition group-hover:bg-brand-primary group-hover:text-white motion-reduce:transition-none">
-                                                    <Icon
-                                                        className="size-6"
+                                            <div className="relative w-32 shrink-0 overflow-hidden bg-brand-surface-soft sm:w-44 md:aspect-[16/9] md:w-full">
+                                                <img
+                                                    src={event.imagePath}
+                                                    alt={event.imageAlt ?? ''}
+                                                    width="720"
+                                                    height="405"
+                                                    loading="lazy"
+                                                    decoding="async"
+                                                    className="size-full object-cover transition duration-500 motion-safe:group-hover:scale-[1.04] motion-reduce:transition-none"
+                                                />
+                                                <time
+                                                    dateTime={event.eventDate}
+                                                    aria-label={formatDate(
+                                                        event.eventDate,
+                                                    )}
+                                                    className="absolute top-3 left-3 flex min-w-14 flex-col items-center rounded-xl border border-white/80 bg-white/95 px-2.5 py-2 text-center shadow-lg backdrop-blur-sm"
+                                                >
+                                                    <span className="font-serif text-2xl leading-none font-extrabold text-brand-primary-strong">
+                                                        {formatEventDay(
+                                                            event.eventDate,
+                                                        )}
+                                                    </span>
+                                                    <span className="mt-1 text-[0.65rem] font-extrabold tracking-[0.14em] text-brand-accent">
+                                                        {formatEventMonth(
+                                                            event.eventDate,
+                                                        )}
+                                                    </span>
+                                                </time>
+                                            </div>
+
+                                            <div className="flex min-w-0 flex-1 flex-col">
+                                                <div className="flex-1 p-5 sm:p-6">
+                                                    <h3
+                                                        id={`event-${event.id}`}
+                                                        className="font-serif text-lg leading-snug font-bold text-brand-primary-strong sm:text-xl"
+                                                    >
+                                                        {event.title}
+                                                    </h3>
+                                                    <div className="mt-4 grid gap-3 text-sm text-brand-text-muted">
+                                                        <p className="flex items-start gap-2">
+                                                            <Clock3
+                                                                className="mt-0.5 size-4 shrink-0 text-brand-primary"
+                                                                aria-hidden="true"
+                                                            />
+                                                            <span>
+                                                                <time
+                                                                    dateTime={
+                                                                        event.eventDate
+                                                                    }
+                                                                >
+                                                                    {formatDate(
+                                                                        event.eventDate,
+                                                                    )}
+                                                                </time>{' '}
+                                                                <span aria-hidden="true">
+                                                                    ·
+                                                                </span>{' '}
+                                                                {formatEventTime(
+                                                                    event.eventDate,
+                                                                )}
+                                                            </span>
+                                                        </p>
+                                                        <p className="flex items-start gap-2">
+                                                            <MapPin
+                                                                className="mt-0.5 size-4 shrink-0 text-brand-primary"
+                                                                aria-hidden="true"
+                                                            />
+                                                            <span className="leading-5">
+                                                                {event.location}
+                                                            </span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <Link
+                                                    href={
+                                                        auth.user
+                                                            ? dashboard()
+                                                            : register()
+                                                    }
+                                                    aria-label={`Register for ${event.title}`}
+                                                    className={`${focusRing} group/action flex min-h-13 items-center justify-between gap-3 border-t border-brand-border px-5 text-sm font-extrabold text-brand-primary transition hover:bg-brand-surface-soft motion-reduce:transition-none sm:px-6`}
+                                                >
+                                                    Register now
+                                                    <ArrowRight
+                                                        className="size-4 transition motion-safe:group-hover/action:translate-x-1 motion-reduce:transition-none"
                                                         aria-hidden="true"
                                                     />
-                                                </span>
-                                                <span className="text-xs font-bold text-brand-border">
-                                                    0{index + 1}
-                                                </span>
+                                                </Link>
                                             </div>
-                                            <h3 className="mt-6 text-xl font-bold text-brand-text">
-                                                {feature.title}
-                                            </h3>
-                                            <p className="mt-3 text-sm leading-6 text-brand-text-muted">
-                                                {feature.description}
-                                            </p>
                                         </article>
-                                    );
-                                })}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    </section>
+                        </m.section>
 
-                    <section
-                        id="community"
-                        className="scroll-mt-24 bg-white px-4 py-20 sm:px-6 sm:py-24 lg:px-8"
-                    >
-                        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
-                            <div className="relative isolate overflow-hidden rounded-3xl p-8 text-white shadow-2xl sm:p-10">
-                                <img
-                                    src="/storage/alumni%20(5).jpg"
-                                    alt=""
-                                    width="3800"
-                                    height="2138"
-                                    loading="lazy"
-                                    decoding="async"
-                                    aria-hidden="true"
-                                    className="absolute inset-0 -z-20 size-full object-cover object-center"
-                                />
-                                <div
-                                    className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(0,22,70,0.46)_0%,rgba(0,18,61,0.84)_100%)]"
-                                    aria-hidden="true"
-                                />
-                                <div className="absolute top-0 right-0 size-64 translate-x-1/3 -translate-y-1/3 rounded-full bg-brand-accent/35 blur-3xl" />
-                                <img
-                                    src="/images/dmhma-alumni-logo.png"
-                                    alt="DMHMA Alumni Association emblem"
-                                    width="176"
-                                    height="176"
-                                    loading="lazy"
-                                    decoding="async"
-                                    className="relative z-10 size-32 rounded-2xl bg-white object-contain p-3 shadow-xl sm:size-40"
-                                />
-                                <p className="relative z-10 mt-8 text-xs font-bold tracking-[0.2em] text-brand-secondary uppercase">
-                                    Rooted in DMHMA
-                                </p>
-                                <p className="relative z-10 mt-3 max-w-md text-2xl leading-snug font-bold sm:text-3xl">
-                                    A lifelong network built on shared memories,
-                                    mutual respect, and service.
-                                </p>
-                            </div>
-
-                            <div>
+                        <m.section
+                            {...revealMotion('up', shouldReduceMotion, 0.08)}
+                            id="updates"
+                            className="scroll-mt-24 px-4 py-20 sm:px-6 sm:py-24 lg:px-8"
+                        >
+                            <div className="mx-auto max-w-7xl">
                                 <SectionHeading
-                                    eyebrow="More than a directory"
-                                    title="Turn school connections into lifelong community."
-                                    description="DMHMA shaped friendships and values that extend far beyond the classroom. The association gives those connections a trusted place to continue."
-                                    align="left"
+                                    eyebrow="From the association"
+                                    title="Stay close to what is happening."
+                                    description="See the next gathering and the latest official notices from the DMHMA Alumni Association."
                                 />
-                                <ul className="mt-8 grid gap-4 sm:grid-cols-2">
-                                    {[
-                                        'Reconnect across batches and locations',
-                                        'Keep member information organized and current',
-                                        'Discover official events and announcements',
-                                        'Create pathways for mentorship and support',
-                                    ].map((item) => (
-                                        <li
-                                            key={item}
-                                            className="flex items-start gap-3 text-sm font-semibold text-brand-text"
-                                        >
-                                            <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-secondary text-brand-primary">
-                                                <Check
+
+                                <div className="mt-12 grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
+                                    <article className="group relative min-h-[26rem] overflow-hidden rounded-3xl bg-brand-primary-strong p-7 text-white shadow-xl sm:p-10">
+                                        {nextEventImagePath && (
+                                            <img
+                                                src={nextEventImagePath}
+                                                alt={
+                                                    isGrandAlumniReunion
+                                                        ? 'DMHMA alumni celebrating together at a reunion event'
+                                                        : ''
+                                                }
+                                                loading="lazy"
+                                                decoding="async"
+                                                className={`absolute inset-0 size-full object-cover ${isGrandAlumniReunion ? 'transition duration-700 motion-safe:group-hover:scale-[1.025] motion-reduce:transition-none' : ''}`}
+                                            />
+                                        )}
+                                        <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(0,13,47,0.96),rgba(0,24,96,0.52))]" />
+                                        <div className="relative flex h-full flex-col justify-between">
+                                            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold tracking-[0.16em] uppercase backdrop-blur">
+                                                <CalendarDays
                                                     className="size-4"
                                                     aria-hidden="true"
                                                 />
+                                                {nextEvent
+                                                    ? 'Next event'
+                                                    : 'Events'}
                                             </span>
-                                            <span className="leading-6">
-                                                {item}
-                                            </span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section
-                        id="events"
-                        aria-labelledby="events-heading"
-                        className="scroll-mt-24 px-4 py-20 sm:px-6 sm:py-24 lg:px-8"
-                    >
-                        <div className="mx-auto max-w-7xl">
-                            <div className="flex flex-col gap-7 sm:flex-row sm:items-end sm:justify-between">
-                                <div>
-                                    <p className="inline-flex rounded-full bg-brand-accent/10 px-3 py-1.5 text-xs font-bold tracking-[0.14em] text-brand-accent uppercase">
-                                        Upcoming events
-                                    </p>
-                                    <h2
-                                        id="events-heading"
-                                        className="mt-4 font-serif text-3xl leading-tight font-bold tracking-tight text-brand-primary-strong sm:text-4xl lg:text-5xl"
-                                    >
-                                        Stay{' '}
-                                        <span className="text-brand-accent">
-                                            connected,
-                                        </span>{' '}
-                                        stay involved.
-                                    </h2>
-                                </div>
-
-                                <a
-                                    href="#updates"
-                                    className={`${focusRing} group inline-flex min-h-12 w-fit items-center justify-center gap-3 rounded-full border border-brand-primary/35 bg-white px-6 text-sm font-extrabold text-brand-primary shadow-sm transition hover:border-brand-primary hover:bg-brand-surface-soft motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none`}
-                                >
-                                    View all events
-                                    <ArrowRight
-                                        className="size-4 transition motion-safe:group-hover:translate-x-1 motion-reduce:transition-none"
-                                        aria-hidden="true"
-                                    />
-                                </a>
-                            </div>
-
-                            <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                                {upcomingEvents.map((event) => (
-                                    <article
-                                        key={event.id}
-                                        aria-labelledby={`event-${event.id}`}
-                                        className="group flex overflow-hidden rounded-2xl border border-brand-border bg-white shadow-[0_12px_35px_rgba(0,48,144,0.06)] transition duration-300 hover:border-brand-primary/30 hover:shadow-[0_20px_50px_rgba(0,48,144,0.13)] motion-safe:hover:-translate-y-1 motion-reduce:transition-none md:flex-col"
-                                    >
-                                        <div className="relative w-32 shrink-0 overflow-hidden bg-brand-surface-soft sm:w-44 md:aspect-[16/9] md:w-full">
-                                            <img
-                                                src={event.imagePath}
-                                                alt={event.imageAlt ?? ''}
-                                                width="720"
-                                                height="405"
-                                                loading="lazy"
-                                                decoding="async"
-                                                className="size-full object-cover transition duration-500 motion-safe:group-hover:scale-[1.04] motion-reduce:transition-none"
-                                            />
-                                            <time
-                                                dateTime={event.eventDate}
-                                                aria-label={formatDate(
-                                                    event.eventDate,
-                                                )}
-                                                className="absolute top-3 left-3 flex min-w-14 flex-col items-center rounded-xl border border-white/80 bg-white/95 px-2.5 py-2 text-center shadow-lg backdrop-blur-sm"
-                                            >
-                                                <span className="font-serif text-2xl leading-none font-extrabold text-brand-primary-strong">
-                                                    {formatEventDay(
-                                                        event.eventDate,
-                                                    )}
-                                                </span>
-                                                <span className="mt-1 text-[0.65rem] font-extrabold tracking-[0.14em] text-brand-accent">
-                                                    {formatEventMonth(
-                                                        event.eventDate,
-                                                    )}
-                                                </span>
-                                            </time>
-                                        </div>
-
-                                        <div className="flex min-w-0 flex-1 flex-col">
-                                            <div className="flex-1 p-5 sm:p-6">
-                                                <h3
-                                                    id={`event-${event.id}`}
-                                                    className="font-serif text-lg leading-snug font-bold text-brand-primary-strong sm:text-xl"
-                                                >
-                                                    {event.title}
+                                            <div className="mt-16">
+                                                <h3 className="max-w-2xl text-3xl leading-tight font-bold sm:text-4xl">
+                                                    {nextEvent?.title ??
+                                                        'The next alumni event will appear here.'}
                                                 </h3>
-                                                <div className="mt-4 grid gap-3 text-sm text-brand-text-muted">
-                                                    <p className="flex items-start gap-2">
-                                                        <Clock3
-                                                            className="mt-0.5 size-4 shrink-0 text-brand-primary"
-                                                            aria-hidden="true"
-                                                        />
-                                                        <span>
+                                                {nextEvent ? (
+                                                    <div className="mt-6 flex flex-col gap-3 text-sm text-white/78 sm:flex-row sm:flex-wrap sm:gap-6">
+                                                        <p className="flex items-center gap-2">
+                                                            <CalendarDays
+                                                                className="size-4"
+                                                                aria-hidden="true"
+                                                            />
+                                                            {formatDate(
+                                                                nextEvent.event_date,
+                                                            )}
+                                                        </p>
+                                                        <p className="flex items-center gap-2">
+                                                            <MapPin
+                                                                className="size-4"
+                                                                aria-hidden="true"
+                                                            />
+                                                            {nextEvent.location}
+                                                        </p>
+                                                    </div>
+                                                ) : (
+                                                    <p className="mt-5 max-w-xl text-base leading-7 text-white/72">
+                                                        There is no published
+                                                        upcoming event yet.
+                                                        Registered members can
+                                                        return here for official
+                                                        schedules and details.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </article>
+
+                                    <div className="rounded-3xl border border-brand-border bg-white p-6 shadow-[0_12px_35px_rgba(0,48,144,0.06)] sm:p-8">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div>
+                                                <p className="text-xs font-bold tracking-[0.18em] text-brand-accent uppercase">
+                                                    Notice board
+                                                </p>
+                                                <h3 className="mt-2 text-2xl font-bold text-brand-text">
+                                                    Latest updates
+                                                </h3>
+                                            </div>
+                                            <BellRing
+                                                className="size-7 text-brand-primary"
+                                                aria-hidden="true"
+                                            />
+                                        </div>
+                                        {notices.length > 0 ? (
+                                            <div className="mt-6 divide-y divide-brand-border">
+                                                {notices.map((notice) => (
+                                                    <article
+                                                        key={notice.id}
+                                                        className="py-5 first:pt-0 last:pb-0"
+                                                    >
+                                                        <div className="flex items-center gap-3 text-xs font-bold tracking-wide text-brand-text-muted uppercase">
+                                                            <span className="text-brand-primary">
+                                                                {
+                                                                    notice.category
+                                                                }
+                                                            </span>
+                                                            <span aria-hidden="true">
+                                                                •
+                                                            </span>
                                                             <time
                                                                 dateTime={
-                                                                    event.eventDate
+                                                                    notice.created_at
                                                                 }
                                                             >
                                                                 {formatDate(
-                                                                    event.eventDate,
+                                                                    notice.created_at,
                                                                 )}
-                                                            </time>{' '}
-                                                            <span aria-hidden="true">
-                                                                ·
-                                                            </span>{' '}
-                                                            {formatEventTime(
-                                                                event.eventDate,
-                                                            )}
-                                                        </span>
-                                                    </p>
-                                                    <p className="flex items-start gap-2">
-                                                        <MapPin
-                                                            className="mt-0.5 size-4 shrink-0 text-brand-primary"
-                                                            aria-hidden="true"
-                                                        />
-                                                        <span className="leading-5">
-                                                            {event.location}
-                                                        </span>
-                                                    </p>
-                                                </div>
+                                                            </time>
+                                                        </div>
+                                                        <h4 className="mt-2 text-base leading-6 font-bold text-brand-text">
+                                                            {notice.title}
+                                                        </h4>
+                                                    </article>
+                                                ))}
                                             </div>
+                                        ) : (
+                                            <div className="mt-8 rounded-2xl bg-brand-surface-soft p-6">
+                                                <p className="font-bold text-brand-text">
+                                                    No notices have been
+                                                    published yet.
+                                                </p>
+                                                <p className="mt-2 text-sm leading-6 text-brand-text-muted">
+                                                    Official association
+                                                    announcements will be listed
+                                                    here as soon as they are
+                                                    available.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </m.section>
 
+                        <m.section
+                            {...revealMotion('right', shouldReduceMotion, 0.04)}
+                            id="testimonials"
+                            className="scroll-mt-24 bg-white px-4 py-20 sm:px-6 sm:py-24 lg:px-8"
+                        >
+                            <div className="mx-auto max-w-7xl">
+                                <div>
+                                    <div>
+                                        <p className="inline-flex rounded-full bg-[#edf8ec] px-3 py-1 text-[0.68rem] font-extrabold tracking-[0.14em] text-[#288536] uppercase">
+                                            Voices of our alumni
+                                        </p>
+                                        <h2 className="mt-4 max-w-3xl font-serif text-3xl leading-tight font-bold tracking-tight text-brand-primary-strong sm:text-4xl lg:text-5xl">
+                                            We Are{' '}
+                                            <span className="text-[#30933f]">
+                                                Proud
+                                            </span>{' '}
+                                            to Be DMHMA Alumni
+                                        </h2>
+                                    </div>
+                                </div>
+
+                                <TestimonialsMarquee
+                                    testimonials={testimonials}
+                                    direction="left"
+                                    speed={36}
+                                    gap={20}
+                                    className="mt-7"
+                                />
+
+                                <m.div
+                                    {...revealMotion(
+                                        'scale',
+                                        shouldReduceMotion,
+                                        0.12,
+                                    )}
+                                    className="mt-10 overflow-hidden rounded-2xl bg-brand-primary-strong text-white shadow-[0_22px_55px_rgba(0,24,96,0.24)]"
+                                >
+                                    <div className="relative isolate grid gap-8 px-6 py-10 sm:px-10 lg:grid-cols-[1fr_auto] lg:items-center lg:px-14 lg:py-11">
+                                        <div className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_78%_35%,rgba(0,120,240,0.55),transparent_28%),linear-gradient(105deg,#00184f_0%,#003090_62%,#064188_100%)]" />
+                                        <img
+                                            src="/images/dmhma-alumni-logo.png"
+                                            alt=""
+                                            loading="lazy"
+                                            decoding="async"
+                                            className="pointer-events-none absolute top-1/2 right-8 -z-10 hidden size-72 -translate-y-1/2 object-contain opacity-[0.09] md:block"
+                                        />
+                                        <div>
+                                            <h2 className="font-serif text-3xl leading-tight font-bold sm:text-4xl">
+                                                Be a Part of Something Greater
+                                            </h2>
+                                            <p className="mt-3 max-w-xl text-sm leading-6 text-white/72 sm:text-base">
+                                                Join generations of DMHMA
+                                                alumni, reconnect with your
+                                                roots, and help build a
+                                                community that moves forward
+                                                together.
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
                                             <Link
                                                 href={
                                                     auth.user
                                                         ? dashboard()
                                                         : register()
                                                 }
-                                                aria-label={`Register for ${event.title}`}
-                                                className={`${focusRing} group/action flex min-h-13 items-center justify-between gap-3 border-t border-brand-border px-5 text-sm font-extrabold text-brand-primary transition hover:bg-brand-surface-soft motion-reduce:transition-none sm:px-6`}
+                                                className={`${focusRing} group inline-flex min-h-12 items-center justify-center gap-3 rounded-full bg-[#43a33e] px-7 text-sm font-extrabold text-white shadow-lg transition hover:bg-[#378c34] motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none`}
                                             >
-                                                Register now
+                                                {auth.user
+                                                    ? 'Open Dashboard'
+                                                    : 'Join Now'}
                                                 <ArrowRight
-                                                    className="size-4 transition motion-safe:group-hover/action:translate-x-1 motion-reduce:transition-none"
+                                                    className="size-4 transition motion-safe:group-hover:translate-x-1 motion-reduce:transition-none"
                                                     aria-hidden="true"
                                                 />
                                             </Link>
-                                        </div>
-                                    </article>
-                                ))}
-                            </div>
-                        </div>
-                    </section>
-
-                    <section
-                        id="updates"
-                        className="scroll-mt-24 px-4 py-20 sm:px-6 sm:py-24 lg:px-8"
-                    >
-                        <div className="mx-auto max-w-7xl">
-                            <SectionHeading
-                                eyebrow="From the association"
-                                title="Stay close to what is happening."
-                                description="See the next gathering and the latest official notices from the DMHMA Alumni Association."
-                            />
-
-                            <div className="mt-12 grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
-                                <article className="group relative min-h-[26rem] overflow-hidden rounded-3xl bg-brand-primary-strong p-7 text-white shadow-xl sm:p-10">
-                                    {nextEventImagePath && (
-                                        <img
-                                            src={nextEventImagePath}
-                                            alt={
-                                                isGrandAlumniReunion
-                                                    ? 'DMHMA alumni celebrating together at a reunion event'
-                                                    : ''
-                                            }
-                                            loading="lazy"
-                                            decoding="async"
-                                            className={`absolute inset-0 size-full object-cover ${isGrandAlumniReunion ? 'transition duration-700 motion-safe:group-hover:scale-[1.025] motion-reduce:transition-none' : ''}`}
-                                        />
-                                    )}
-                                    <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(0,13,47,0.96),rgba(0,24,96,0.52))]" />
-                                    <div className="relative flex h-full flex-col justify-between">
-                                        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold tracking-[0.16em] uppercase backdrop-blur">
-                                            <CalendarDays
-                                                className="size-4"
-                                                aria-hidden="true"
-                                            />
-                                            {nextEvent
-                                                ? 'Next event'
-                                                : 'Events'}
-                                        </span>
-                                        <div className="mt-16">
-                                            <h3 className="max-w-2xl text-3xl leading-tight font-bold sm:text-4xl">
-                                                {nextEvent?.title ??
-                                                    'The next alumni event will appear here.'}
-                                            </h3>
-                                            {nextEvent ? (
-                                                <div className="mt-6 flex flex-col gap-3 text-sm text-white/78 sm:flex-row sm:flex-wrap sm:gap-6">
-                                                    <p className="flex items-center gap-2">
-                                                        <CalendarDays
-                                                            className="size-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        {formatDate(
-                                                            nextEvent.event_date,
-                                                        )}
-                                                    </p>
-                                                    <p className="flex items-center gap-2">
-                                                        <MapPin
-                                                            className="size-4"
-                                                            aria-hidden="true"
-                                                        />
-                                                        {nextEvent.location}
-                                                    </p>
-                                                </div>
-                                            ) : (
-                                                <p className="mt-5 max-w-xl text-base leading-7 text-white/72">
-                                                    There is no published
-                                                    upcoming event yet.
-                                                    Registered members can
-                                                    return here for official
-                                                    schedules and details.
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </article>
-
-                                <div className="rounded-3xl border border-brand-border bg-white p-6 shadow-[0_12px_35px_rgba(0,48,144,0.06)] sm:p-8">
-                                    <div className="flex items-center justify-between gap-4">
-                                        <div>
-                                            <p className="text-xs font-bold tracking-[0.18em] text-brand-accent uppercase">
-                                                Notice board
-                                            </p>
-                                            <h3 className="mt-2 text-2xl font-bold text-brand-text">
-                                                Latest updates
-                                            </h3>
-                                        </div>
-                                        <BellRing
-                                            className="size-7 text-brand-primary"
-                                            aria-hidden="true"
-                                        />
-                                    </div>
-                                    {notices.length > 0 ? (
-                                        <div className="mt-6 divide-y divide-brand-border">
-                                            {notices.map((notice) => (
-                                                <article
-                                                    key={notice.id}
-                                                    className="py-5 first:pt-0 last:pb-0"
-                                                >
-                                                    <div className="flex items-center gap-3 text-xs font-bold tracking-wide text-brand-text-muted uppercase">
-                                                        <span className="text-brand-primary">
-                                                            {notice.category}
-                                                        </span>
-                                                        <span aria-hidden="true">
-                                                            •
-                                                        </span>
-                                                        <time
-                                                            dateTime={
-                                                                notice.created_at
-                                                            }
-                                                        >
-                                                            {formatDate(
-                                                                notice.created_at,
-                                                            )}
-                                                        </time>
-                                                    </div>
-                                                    <h4 className="mt-2 text-base leading-6 font-bold text-brand-text">
-                                                        {notice.title}
-                                                    </h4>
-                                                </article>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="mt-8 rounded-2xl bg-brand-surface-soft p-6">
-                                            <p className="font-bold text-brand-text">
-                                                No notices have been published
-                                                yet.
-                                            </p>
-                                            <p className="mt-2 text-sm leading-6 text-brand-text-muted">
-                                                Official association
-                                                announcements will be listed
-                                                here as soon as they are
-                                                available.
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section
-                        id="testimonials"
-                        className="scroll-mt-24 bg-white px-4 py-20 sm:px-6 sm:py-24 lg:px-8"
-                    >
-                        <div className="mx-auto max-w-7xl">
-                            <div>
-                                <div>
-                                    <p className="inline-flex rounded-full bg-[#edf8ec] px-3 py-1 text-[0.68rem] font-extrabold tracking-[0.14em] text-[#288536] uppercase">
-                                        Voices of our alumni
-                                    </p>
-                                    <h2 className="mt-4 max-w-3xl font-serif text-3xl leading-tight font-bold tracking-tight text-brand-primary-strong sm:text-4xl lg:text-5xl">
-                                        We Are{' '}
-                                        <span className="text-[#30933f]">
-                                            Proud
-                                        </span>{' '}
-                                        to Be DMHMA Alumni
-                                    </h2>
-                                </div>
-                            </div>
-
-                            <TestimonialsMarquee
-                                testimonials={testimonials}
-                                direction="left"
-                                speed={36}
-                                gap={20}
-                                className="mt-7"
-                            />
-
-                            <div className="mt-10 overflow-hidden rounded-2xl bg-brand-primary-strong text-white shadow-[0_22px_55px_rgba(0,24,96,0.24)]">
-                                <div className="relative isolate grid gap-8 px-6 py-10 sm:px-10 lg:grid-cols-[1fr_auto] lg:items-center lg:px-14 lg:py-11">
-                                    <div className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_78%_35%,rgba(0,120,240,0.55),transparent_28%),linear-gradient(105deg,#00184f_0%,#003090_62%,#064188_100%)]" />
-                                    <img
-                                        src="/images/dmhma-alumni-logo.png"
-                                        alt=""
-                                        loading="lazy"
-                                        decoding="async"
-                                        className="pointer-events-none absolute top-1/2 right-8 -z-10 hidden size-72 -translate-y-1/2 object-contain opacity-[0.09] md:block"
-                                    />
-                                    <div>
-                                        <h2 className="font-serif text-3xl leading-tight font-bold sm:text-4xl">
-                                            Be a Part of Something Greater
-                                        </h2>
-                                        <p className="mt-3 max-w-xl text-sm leading-6 text-white/72 sm:text-base">
-                                            Join generations of DMHMA alumni,
-                                            reconnect with your roots, and help
-                                            build a community that moves forward
-                                            together.
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-col gap-3 sm:flex-row lg:justify-end">
-                                        <Link
-                                            href={
-                                                auth.user
-                                                    ? dashboard()
-                                                    : register()
-                                            }
-                                            className={`${focusRing} group inline-flex min-h-12 items-center justify-center gap-3 rounded-full bg-[#43a33e] px-7 text-sm font-extrabold text-white shadow-lg transition hover:bg-[#378c34] motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none`}
-                                        >
-                                            {auth.user
-                                                ? 'Open Dashboard'
-                                                : 'Join Now'}
-                                            <ArrowRight
-                                                className="size-4 transition motion-safe:group-hover:translate-x-1 motion-reduce:transition-none"
-                                                aria-hidden="true"
-                                            />
-                                        </Link>
-                                        <a
-                                            href="#community"
-                                            className={`${focusRing} inline-flex min-h-12 items-center justify-center gap-3 rounded-full bg-white px-7 text-sm font-extrabold text-brand-primary shadow-lg transition hover:bg-brand-secondary motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none`}
-                                        >
-                                            Our Community
-                                            <Heart
-                                                className="size-4"
-                                                aria-hidden="true"
-                                            />
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-                </main>
-
-                <footer className="relative overflow-hidden border-t border-brand-accent/35 bg-[#001a4d] text-white">
-                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(0,120,240,0.18),transparent_32%)]" />
-                    <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 sm:py-16 md:grid-cols-2 md:gap-x-12 xl:grid-cols-[1.15fr_0.75fr_0.75fr_1.05fr_1.1fr] xl:gap-0 xl:px-8 xl:py-18">
-                        <section className="md:col-span-2 xl:col-span-1 xl:pr-9">
-                            <Link
-                                href={home()}
-                                aria-label="DMHMA Alumni Association home"
-                                className={`${focusRing} inline-flex rounded-xl ring-offset-[#001a4d]`}
-                            >
-                                <BrandMark light />
-                            </Link>
-                            <p className="mt-5 max-w-xs text-sm leading-6 text-white/68">
-                                Connecting DMHMA alumni across generations and
-                                building a stronger, more supportive community
-                                together.
-                            </p>
-                            <div
-                                className="mt-6 flex items-center gap-2.5"
-                                role="group"
-                                aria-label="Find DMHMA Alumni Association on social media"
-                            >
-                                {[
-                                    {
-                                        label: 'Facebook',
-                                        href: 'https://www.facebook.com/search/top?q=DMHMA%20Alumni%20Association',
-                                        icon: Facebook,
-                                    },
-                                    {
-                                        label: 'LinkedIn',
-                                        href: 'https://www.linkedin.com/search/results/all/?keywords=DMHMA%20Alumni%20Association',
-                                        icon: Linkedin,
-                                    },
-                                    {
-                                        label: 'YouTube',
-                                        href: 'https://www.youtube.com/results?search_query=DMHMA+Alumni+Association',
-                                        icon: Youtube,
-                                    },
-                                    {
-                                        label: 'Instagram',
-                                        href: 'https://www.instagram.com/explore/search/keyword/?q=dmhma%20alumni',
-                                        icon: Instagram,
-                                    },
-                                ].map((social) => {
-                                    const SocialIcon = social.icon;
-
-                                    return (
-                                        <a
-                                            key={social.label}
-                                            href={social.href}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            aria-label={`Find DMHMA Alumni Association on ${social.label}`}
-                                            className={`${focusRing} flex size-9 items-center justify-center rounded-full border border-white/16 bg-white/6 text-white/72 transition hover:border-brand-accent/70 hover:bg-brand-accent hover:text-white motion-reduce:transition-none`}
-                                        >
-                                            <SocialIcon
-                                                className="size-4"
-                                                aria-hidden="true"
-                                            />
-                                        </a>
-                                    );
-                                })}
-                            </div>
-                        </section>
-
-                        <section className="xl:border-l xl:border-white/10 xl:px-8">
-                            <h2 className="text-sm font-bold text-white">
-                                Quick Links
-                            </h2>
-                            <nav
-                                aria-label="Footer quick links"
-                                className="mt-5 grid gap-3"
-                            >
-                                {[
-                                    { label: 'About Us', href: '#about' },
-                                    { label: 'Platform', href: '#platform' },
-                                    { label: 'Events', href: '#events' },
-                                    {
-                                        label: 'News & Notices',
-                                        href: '#updates',
-                                    },
-                                    {
-                                        label: 'Testimonials',
-                                        href: '#testimonials',
-                                    },
-                                ].map((item) => (
-                                    <a
-                                        key={item.label}
-                                        href={item.href}
-                                        className={`${focusRing} w-fit rounded text-sm text-white/68 transition hover:text-white motion-reduce:transition-none`}
-                                    >
-                                        {item.label}
-                                    </a>
-                                ))}
-                            </nav>
-                        </section>
-
-                        <section className="xl:border-l xl:border-white/10 xl:px-8">
-                            <h2 className="text-sm font-bold text-white">
-                                Resources
-                            </h2>
-                            <nav
-                                aria-label="Footer resources"
-                                className="mt-5 grid gap-3"
-                            >
-                                <Link
-                                    href={auth.user ? dashboard() : register()}
-                                    className={`${focusRing} w-fit rounded text-sm text-white/68 transition hover:text-white motion-reduce:transition-none`}
-                                >
-                                    Alumni profile
-                                </Link>
-                                <Link
-                                    href={auth.user ? dashboard() : login()}
-                                    className={`${focusRing} w-fit rounded text-sm text-white/68 transition hover:text-white motion-reduce:transition-none`}
-                                >
-                                    {auth.user
-                                        ? 'Member dashboard'
-                                        : 'Member login'}
-                                </Link>
-                                {!auth.user && (
-                                    <Link
-                                        href={register()}
-                                        className={`${focusRing} w-fit rounded text-sm text-white/68 transition hover:text-white motion-reduce:transition-none`}
-                                    >
-                                        Join the association
-                                    </Link>
-                                )}
-                                <a
-                                    href="mailto:admin@dmhma.edu.bd?subject=DMHMA%20Alumni%20Support"
-                                    className={`${focusRing} w-fit rounded text-sm text-white/68 transition hover:text-white motion-reduce:transition-none`}
-                                >
-                                    Help &amp; support
-                                </a>
-                            </nav>
-                        </section>
-
-                        <section className="xl:border-l xl:border-white/10 xl:px-8">
-                            <h2 className="text-sm font-bold text-white">
-                                Contact Us
-                            </h2>
-                            <address className="mt-5 grid gap-4 text-sm leading-6 text-white/68 not-italic">
-                                <a
-                                    href="https://www.google.com/maps/search/?api=1&query=Dr.%20Makbul%20Hossain%20Memorial%20Academy%2C%20Malijhikanda%2C%20Jhenaigati%2C%20Sherpur%2C%20Bangladesh"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className={`${focusRing} flex items-start gap-3 rounded transition hover:text-white motion-reduce:transition-none`}
-                                >
-                                    <MapPin
-                                        className="mt-0.5 size-4 shrink-0 text-brand-secondary"
-                                        aria-hidden="true"
-                                    />
-                                    <span>
-                                        Malijhikanda, Jhenaigati
-                                        <br />
-                                        Sherpur, Bangladesh
-                                    </span>
-                                </a>
-                                <a
-                                    href="tel:+8801712760903"
-                                    className={`${focusRing} flex items-center gap-3 rounded transition hover:text-white motion-reduce:transition-none`}
-                                >
-                                    <Phone
-                                        className="size-4 shrink-0 text-brand-secondary"
-                                        aria-hidden="true"
-                                    />
-                                    +880 1712-760903
-                                </a>
-                                <a
-                                    href="mailto:admin@dmhma.edu.bd"
-                                    className={`${focusRing} flex items-center gap-3 rounded transition hover:text-white motion-reduce:transition-none`}
-                                >
-                                    <Mail
-                                        className="size-4 shrink-0 text-brand-secondary"
-                                        aria-hidden="true"
-                                    />
-                                    admin@dmhma.edu.bd
-                                </a>
-                            </address>
-                        </section>
-
-                        <section className="md:col-span-2 xl:col-span-1 xl:border-l xl:border-white/10 xl:pl-8">
-                            <h2 className="text-sm font-bold text-white">
-                                Newsletter
-                            </h2>
-                            <p className="mt-5 max-w-sm text-sm leading-6 text-white/68">
-                                Get association news, event announcements, and
-                                community updates in your inbox.
-                            </p>
-                            <Form
-                                action={subscribe()}
-                                resetOnSuccess
-                                className="mt-5"
-                            >
-                                {({
-                                    errors,
-                                    processing,
-                                    recentlySuccessful,
-                                }) => (
-                                    <>
-                                        <div className="flex gap-2">
-                                            <label
-                                                htmlFor="newsletter-email"
-                                                className="sr-only"
+                                            <a
+                                                href="#community"
+                                                className={`${focusRing} inline-flex min-h-12 items-center justify-center gap-3 rounded-full bg-white px-7 text-sm font-extrabold text-brand-primary shadow-lg transition hover:bg-brand-secondary motion-safe:hover:-translate-y-0.5 motion-reduce:transition-none`}
                                             >
-                                                Email address
-                                            </label>
-                                            <input
-                                                id="newsletter-email"
-                                                name="email"
-                                                type="email"
-                                                inputMode="email"
-                                                autoComplete="email"
-                                                required
-                                                placeholder="Enter your email"
-                                                aria-invalid={
-                                                    errors.email
-                                                        ? true
-                                                        : undefined
-                                                }
-                                                aria-describedby="newsletter-status"
-                                                className={`${focusRing} min-h-11 min-w-0 flex-1 rounded-lg border border-white/16 bg-white px-3.5 text-sm text-brand-text ring-offset-[#001a4d] placeholder:text-brand-text-muted/70`}
-                                            />
-                                            <button
-                                                type="submit"
-                                                disabled={processing}
-                                                aria-label="Subscribe to the DMHMA alumni newsletter"
-                                                className={`${focusRing} flex size-11 shrink-0 items-center justify-center rounded-lg bg-[#3da43a] text-white shadow-lg transition hover:bg-[#349032] disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none`}
-                                            >
-                                                <Send
+                                                Our Community
+                                                <Heart
                                                     className="size-4"
                                                     aria-hidden="true"
                                                 />
-                                            </button>
+                                            </a>
                                         </div>
-                                        <p
-                                            id="newsletter-status"
-                                            aria-live="polite"
-                                            className={`mt-2 min-h-5 text-xs ${errors.email ? 'text-red-200' : 'text-emerald-200'}`}
-                                        >
-                                            {errors.email ??
-                                                (recentlySuccessful
-                                                    ? 'Thanks — you are subscribed.'
-                                                    : '')}
-                                        </p>
-                                    </>
-                                )}
-                            </Form>
-                        </section>
-                    </div>
+                                    </div>
+                                </m.div>
+                            </div>
+                        </m.section>
+                    </main>
 
-                    <div className="relative border-t border-white/10">
-                        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-5 text-xs text-white/55 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
-                            <p>
-                                © {new Date().getFullYear()} DMHMA Alumni
-                                Association. All rights reserved.
-                            </p>
-                            <p className="flex items-center gap-1.5">
-                                Designed &amp; developed with
-                                <Heart
-                                    className="size-3.5 fill-red-500 text-red-500"
-                                    aria-hidden="true"
-                                />
-                                <span className="sr-only">care</span>
-                                for the DMHMA community
-                            </p>
+                    <m.footer
+                        {...revealMotion('scale', shouldReduceMotion, 0.04)}
+                        className="relative overflow-hidden border-t border-brand-accent/35 bg-[#001a4d] text-white"
+                    >
+                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(0,120,240,0.18),transparent_32%)]" />
+                        <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 sm:py-16 md:grid-cols-2 md:gap-x-12 xl:grid-cols-[1.15fr_0.75fr_0.75fr_1.05fr_1.1fr] xl:gap-0 xl:px-8 xl:py-18">
+                            <section className="md:col-span-2 xl:col-span-1 xl:pr-9">
+                                <Link
+                                    href={home()}
+                                    aria-label="DMHMA Alumni Association home"
+                                    className={`${focusRing} inline-flex rounded-xl ring-offset-[#001a4d]`}
+                                >
+                                    <BrandMark light />
+                                </Link>
+                                <p className="mt-5 max-w-xs text-sm leading-6 text-white/68">
+                                    Connecting DMHMA alumni across generations
+                                    and building a stronger, more supportive
+                                    community together.
+                                </p>
+                                <div
+                                    className="mt-6 flex items-center gap-2.5"
+                                    role="group"
+                                    aria-label="Find DMHMA Alumni Association on social media"
+                                >
+                                    {[
+                                        {
+                                            label: 'Facebook',
+                                            href: 'https://www.facebook.com/search/top?q=DMHMA%20Alumni%20Association',
+                                            icon: Facebook,
+                                        },
+                                        {
+                                            label: 'LinkedIn',
+                                            href: 'https://www.linkedin.com/search/results/all/?keywords=DMHMA%20Alumni%20Association',
+                                            icon: Linkedin,
+                                        },
+                                        {
+                                            label: 'YouTube',
+                                            href: 'https://www.youtube.com/results?search_query=DMHMA+Alumni+Association',
+                                            icon: Youtube,
+                                        },
+                                        {
+                                            label: 'Instagram',
+                                            href: 'https://www.instagram.com/explore/search/keyword/?q=dmhma%20alumni',
+                                            icon: Instagram,
+                                        },
+                                    ].map((social) => {
+                                        const SocialIcon = social.icon;
+
+                                        return (
+                                            <a
+                                                key={social.label}
+                                                href={social.href}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                aria-label={`Find DMHMA Alumni Association on ${social.label}`}
+                                                className={`${focusRing} flex size-9 items-center justify-center rounded-full border border-white/16 bg-white/6 text-white/72 transition hover:border-brand-accent/70 hover:bg-brand-accent hover:text-white motion-reduce:transition-none`}
+                                            >
+                                                <SocialIcon
+                                                    className="size-4"
+                                                    aria-hidden="true"
+                                                />
+                                            </a>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+
+                            <section className="xl:border-l xl:border-white/10 xl:px-8">
+                                <h2 className="text-sm font-bold text-white">
+                                    Quick Links
+                                </h2>
+                                <nav
+                                    aria-label="Footer quick links"
+                                    className="mt-5 grid gap-3"
+                                >
+                                    {[
+                                        { label: 'About Us', href: '#about' },
+                                        {
+                                            label: 'Platform',
+                                            href: '#platform',
+                                        },
+                                        { label: 'Events', href: '#events' },
+                                        {
+                                            label: 'News & Notices',
+                                            href: '#updates',
+                                        },
+                                        {
+                                            label: 'Testimonials',
+                                            href: '#testimonials',
+                                        },
+                                    ].map((item) => (
+                                        <a
+                                            key={item.label}
+                                            href={item.href}
+                                            className={`${focusRing} w-fit rounded text-sm text-white/68 transition hover:text-white motion-reduce:transition-none`}
+                                        >
+                                            {item.label}
+                                        </a>
+                                    ))}
+                                </nav>
+                            </section>
+
+                            <section className="xl:border-l xl:border-white/10 xl:px-8">
+                                <h2 className="text-sm font-bold text-white">
+                                    Resources
+                                </h2>
+                                <nav
+                                    aria-label="Footer resources"
+                                    className="mt-5 grid gap-3"
+                                >
+                                    <Link
+                                        href={
+                                            auth.user ? dashboard() : register()
+                                        }
+                                        className={`${focusRing} w-fit rounded text-sm text-white/68 transition hover:text-white motion-reduce:transition-none`}
+                                    >
+                                        Alumni profile
+                                    </Link>
+                                    <Link
+                                        href={auth.user ? dashboard() : login()}
+                                        className={`${focusRing} w-fit rounded text-sm text-white/68 transition hover:text-white motion-reduce:transition-none`}
+                                    >
+                                        {auth.user
+                                            ? 'Member dashboard'
+                                            : 'Member login'}
+                                    </Link>
+                                    {!auth.user && (
+                                        <Link
+                                            href={register()}
+                                            className={`${focusRing} w-fit rounded text-sm text-white/68 transition hover:text-white motion-reduce:transition-none`}
+                                        >
+                                            Join the association
+                                        </Link>
+                                    )}
+                                    <a
+                                        href="mailto:admin@dmhma.edu.bd?subject=DMHMA%20Alumni%20Support"
+                                        className={`${focusRing} w-fit rounded text-sm text-white/68 transition hover:text-white motion-reduce:transition-none`}
+                                    >
+                                        Help &amp; support
+                                    </a>
+                                </nav>
+                            </section>
+
+                            <section className="xl:border-l xl:border-white/10 xl:px-8">
+                                <h2 className="text-sm font-bold text-white">
+                                    Contact Us
+                                </h2>
+                                <address className="mt-5 grid gap-4 text-sm leading-6 text-white/68 not-italic">
+                                    <a
+                                        href="https://www.google.com/maps/search/?api=1&query=Dr.%20Makbul%20Hossain%20Memorial%20Academy%2C%20Malijhikanda%2C%20Jhenaigati%2C%20Sherpur%2C%20Bangladesh"
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className={`${focusRing} flex items-start gap-3 rounded transition hover:text-white motion-reduce:transition-none`}
+                                    >
+                                        <MapPin
+                                            className="mt-0.5 size-4 shrink-0 text-brand-secondary"
+                                            aria-hidden="true"
+                                        />
+                                        <span>
+                                            Malijhikanda, Jhenaigati
+                                            <br />
+                                            Sherpur, Bangladesh
+                                        </span>
+                                    </a>
+                                    <a
+                                        href="tel:+8801712760903"
+                                        className={`${focusRing} flex items-center gap-3 rounded transition hover:text-white motion-reduce:transition-none`}
+                                    >
+                                        <Phone
+                                            className="size-4 shrink-0 text-brand-secondary"
+                                            aria-hidden="true"
+                                        />
+                                        +880 1712-760903
+                                    </a>
+                                    <a
+                                        href="mailto:admin@dmhma.edu.bd"
+                                        className={`${focusRing} flex items-center gap-3 rounded transition hover:text-white motion-reduce:transition-none`}
+                                    >
+                                        <Mail
+                                            className="size-4 shrink-0 text-brand-secondary"
+                                            aria-hidden="true"
+                                        />
+                                        admin@dmhma.edu.bd
+                                    </a>
+                                </address>
+                            </section>
+
+                            <section className="md:col-span-2 xl:col-span-1 xl:border-l xl:border-white/10 xl:pl-8">
+                                <h2 className="text-sm font-bold text-white">
+                                    Newsletter
+                                </h2>
+                                <p className="mt-5 max-w-sm text-sm leading-6 text-white/68">
+                                    Get association news, event announcements,
+                                    and community updates in your inbox.
+                                </p>
+                                <Form
+                                    action={subscribe()}
+                                    resetOnSuccess
+                                    className="mt-5"
+                                >
+                                    {({
+                                        errors,
+                                        processing,
+                                        recentlySuccessful,
+                                    }) => (
+                                        <>
+                                            <div className="flex gap-2">
+                                                <label
+                                                    htmlFor="newsletter-email"
+                                                    className="sr-only"
+                                                >
+                                                    Email address
+                                                </label>
+                                                <input
+                                                    id="newsletter-email"
+                                                    name="email"
+                                                    type="email"
+                                                    inputMode="email"
+                                                    autoComplete="email"
+                                                    required
+                                                    placeholder="Enter your email"
+                                                    aria-invalid={
+                                                        errors.email
+                                                            ? true
+                                                            : undefined
+                                                    }
+                                                    aria-describedby="newsletter-status"
+                                                    className={`${focusRing} min-h-11 min-w-0 flex-1 rounded-lg border border-white/16 bg-white px-3.5 text-sm text-brand-text ring-offset-[#001a4d] placeholder:text-brand-text-muted/70`}
+                                                />
+                                                <button
+                                                    type="submit"
+                                                    disabled={processing}
+                                                    aria-label="Subscribe to the DMHMA alumni newsletter"
+                                                    className={`${focusRing} flex size-11 shrink-0 items-center justify-center rounded-lg bg-[#3da43a] text-white shadow-lg transition hover:bg-[#349032] disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none`}
+                                                >
+                                                    <Send
+                                                        className="size-4"
+                                                        aria-hidden="true"
+                                                    />
+                                                </button>
+                                            </div>
+                                            <p
+                                                id="newsletter-status"
+                                                aria-live="polite"
+                                                className={`mt-2 min-h-5 text-xs ${errors.email ? 'text-red-200' : 'text-emerald-200'}`}
+                                            >
+                                                {errors.email ??
+                                                    (recentlySuccessful
+                                                        ? 'Thanks — you are subscribed.'
+                                                        : '')}
+                                            </p>
+                                        </>
+                                    )}
+                                </Form>
+                            </section>
                         </div>
-                    </div>
-                </footer>
-            </div>
+
+                        <div className="relative border-t border-white/10">
+                            <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-5 text-xs text-white/55 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
+                                <p>
+                                    © {new Date().getFullYear()} DMHMA Alumni
+                                    Association. All rights reserved.
+                                </p>
+                                <p className="flex items-center gap-1.5">
+                                    Designed &amp; developed with
+                                    <Heart
+                                        className="size-3.5 fill-red-500 text-red-500"
+                                        aria-hidden="true"
+                                    />
+                                    <span className="sr-only">care</span>
+                                    for the DMHMA community
+                                </p>
+                            </div>
+                        </div>
+                    </m.footer>
+                </div>
+            </LazyMotion>
         </>
     );
 }
