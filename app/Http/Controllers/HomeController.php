@@ -2,26 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AlumniProfile;
 use App\Models\Event;
 use App\Models\Leadership;
 use App\Models\Notice;
 use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response;
-use App\Models\AlumniProfile;
 
 class HomeController extends Controller
 {
-    public function __invoke(Request $request): Response
+    public function __invoke(): Response
     {
-        $stats = Cache::remember('welcome_stats', 3600, function () {
+        $stats = Cache::remember('welcome_stats_v2', 3600, function (): array {
             return [
-                'totalMembers'    => User::whereNotNull('email_verified_at')->count(),
-                // 'activeBatches'   => User::distinct('batch_year')->count('batch_year') ?: 24,
-                'activeBatches'   => AlumniProfile::distinct('batch_year')->count('batch_year') ?: 24,
-                'fundsRaised'     => 1500000,
+                'totalMembers' => User::whereNotNull('email_verified_at')->count(),
+                'activeBatches' => AlumniProfile::distinct('batch_year')->count('batch_year'),
                 'eventsOrganized' => Event::where('event_date', '<', now())->count(),
             ];
         });
@@ -51,9 +48,9 @@ class HomeController extends Controller
         });
 
         return Inertia::render('welcome', [
-            'stats'      => $stats,
-            'notices'    => $notices,
-            'nextEvent'  => $nextEvent,
+            'stats' => $stats,
+            'notices' => $notices,
+            'nextEvent' => $nextEvent,
             'leadership' => $leadership,
         ]);
     }
