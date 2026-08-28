@@ -25,7 +25,7 @@ import {
     SidebarFooter,
     SidebarHeader,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
+import { dashboard, directory } from '@/routes';
 import { edit as appearanceEdit } from '@/routes/appearance';
 import { edit as profileEdit } from '@/routes/profile';
 
@@ -40,7 +40,7 @@ const mainNavItems: SidebarNavItem[] = [
     { title: 'Events', icon: CalendarDays },
     { title: 'Payments', icon: CreditCard },
     { title: 'Donations', icon: HandCoins },
-    { title: 'Directory', icon: ContactRound },
+    { title: 'Directory', href: directory(), icon: ContactRound },
     { title: 'Scholarship', icon: GraduationCap },
     { title: 'Blood Donation', icon: Droplets },
     { title: 'News & Notices', icon: Newspaper },
