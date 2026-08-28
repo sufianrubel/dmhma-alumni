@@ -25,7 +25,7 @@ import {
     SidebarFooter,
     SidebarHeader,
 } from '@/components/ui/sidebar';
-import { dashboard, directory } from '@/routes';
+import { dashboard, directory, membership } from '@/routes';
 import { edit as appearanceEdit } from '@/routes/appearance';
 import { edit as profileEdit } from '@/routes/profile';
 
@@ -34,6 +34,7 @@ const mainNavItems: SidebarNavItem[] = [
     { title: 'Profile', href: profileEdit(), icon: UserRound },
     {
         title: 'Membership',
+        href: membership(),
         icon: UsersRound,
         trailingIcon: ChevronRight,
     },

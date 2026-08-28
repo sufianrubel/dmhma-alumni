@@ -12,6 +12,7 @@ Route::post('newsletter/subscribe', NewsletterSubscriptionController::class)
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
     Route::inertia('directory', 'directory')->name('directory');
+    Route::inertia('membership', 'membership')->name('membership');
 });
 
 require __DIR__.'/settings.php';
