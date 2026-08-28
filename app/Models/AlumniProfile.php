@@ -2,23 +2,31 @@
 
 namespace App\Models;
 
+use Database\Factories\AlumniProfileFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AlumniProfile extends Model
 {
-    /** @use HasFactory<\Database\Factories\AlumniProfileFactory> */
+    /** @use HasFactory<AlumniProfileFactory> */
     use HasFactory;
 
     protected $fillable = [
         'user_id',
         'batch_year',
         'student_id',
+        'nickname',
+        'father_name',
+        'mother_name',
         'department',
         'blood_group',
         'phone',
         'date_of_birth',
+        'gender',
+        'present_address',
+        'permanent_address',
+        'tshirt_size',
         'occupation',
         'company',
         'designation',
@@ -29,9 +37,9 @@ class AlumniProfile extends Model
     ];
 
     protected $casts = [
-        'batch_year'    => 'integer',
+        'batch_year' => 'integer',
         'date_of_birth' => 'date',
-        'is_verified'   => 'boolean',
+        'is_verified' => 'boolean',
     ];
 
     public function user(): BelongsTo
