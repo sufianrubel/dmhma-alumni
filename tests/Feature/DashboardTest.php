@@ -17,6 +17,7 @@ test('authenticated users can visit the dashboard', function () {
         ->component('dashboard')
         ->where('auth.user.id', $user->id)
         ->where('auth.user.name', $user->name)
+        ->has('auth.user.created_at')
         ->etc()
     );
 });

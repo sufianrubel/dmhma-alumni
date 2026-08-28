@@ -72,8 +72,10 @@
     --color-brand-text-muted: var(--brand-text-muted);
     --color-brand-border: var(--brand-border);
     --color-brand-success: var(--brand-success);
+    --color-brand-success-foreground: var(--brand-success-foreground);
     --color-brand-warning: var(--brand-warning);
     --color-brand-error: var(--brand-error);
+    --color-brand-purple: var(--brand-purple);
 }
 
 :root {
@@ -89,8 +91,10 @@
     --brand-text-muted: #405b7c;
     --brand-border: #e6ebf2;
     --brand-success: #087a5b;
+    --brand-success-foreground: #ffffff;
     --brand-warning: #946200;
     --brand-error: #b42318;
+    --brand-purple: #6f2dbd;
 
     --background: var(--brand-background);
     --foreground: var(--brand-text);
@@ -140,8 +144,10 @@
     --brand-text-muted: #b8d4ee;
     --brand-border: #245f9f;
     --brand-success: #7dd8be;
+    --brand-success-foreground: #051a3f;
     --brand-warning: #ffd166;
     --brand-error: #ff8a80;
+    --brand-purple: #c4a7ff;
 
     --background: var(--brand-background);
     --foreground: var(--brand-text);
